@@ -1,0 +1,46 @@
+{
+  "service_url": "http://localhost:5000",
+  "log_file": "logs/app.log",
+  "check_interval": 60,
+  "thresholds": {
+    "cpu_percent": 80,
+    "memory_percent": 80,
+    "disk_percent": 85,
+    "response_time": 5.0,
+    "error_rate_per_10min": 10
+  },
+  "alerts": {
+    "email": {
+      "enabled": false,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "use_tls": true,
+      "from": "alerts@yourcompany.com",
+      "to": ["admin@yourcompany.com"],
+      "username": "",
+      "password": ""
+    },
+    "slack": {
+      "enabled": false,
+      "webhook_url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+    }
+  },
+  "retention": {
+    "monitoring_logs_days": 30,
+    "alert_history_days": 7
+  },
+  "endpoints_to_monitor": [
+    "/health",
+    "/metrics"
+  ],
+  "custom_checks": {
+    "slack_connectivity": {
+      "enabled": true,
+      "interval": 300
+    },
+    "docker_containers": {
+      "enabled": true,
+      "containers": ["mlm", "edpadmin", "edpdob", "vkyc"]
+    }
+  }
+}
