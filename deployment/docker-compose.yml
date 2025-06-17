@@ -2,28 +2,34 @@ version: '3.8'
 
 services:
   bot-slack:
-    build: .
-    container_name: bot-slack-service
+    image: ${CI_REGISTRY_IMAGE}/bot-slack:${IMAGE_TAG:-latest}
+    container_name: bot-slack
     ports:
       - "5000:5000"
     environment:
       - FLASK_ENV=production
-      - FLASK_DEBUG=false
+      - FLASK_APP=app.main
+      - PYTHONPATH=/app
     env_file:
-      - .env
+      - ../.env
     volumes:
-      - ./logs:/app/logs
-      - ./reports:/app/reports
-      - /var/run/docker.sock:/var/run/docker.sock  # For Docker operations
-    restart: unless-stopped
+      - ../logs:/app/logs
+      - ../reports:/app/reports
+      - ../data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    restart: unless-stopped
     networks:
       - bot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Optional: Add nginx reverse proxy
   nginx:

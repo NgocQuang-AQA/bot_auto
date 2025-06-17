@@ -1,3 +1,4 @@
+# Use Python 3.9 slim image
 FROM python:3.9-slim
 
 # Set working directory
@@ -32,4 +33,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
 # Run the application
-CMD ["python", "app.py"]
+CMD ["python", "run.py", "--mode", "prod"]

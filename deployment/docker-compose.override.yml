@@ -1,0 +1,52 @@
+# Docker Compose Override for Development Environment
+# This file is automatically loaded by docker-compose for local development
+
+version: '3.8'
+
+services:
+  bot-slack:
+    # Use local build instead of registry image for development
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    image: bot-slack:dev
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=true
+      - FLASK_APP=run.py
+      - PYTHONPATH=/app
+    volumes:
+      # Mount source code for hot reload
+      - ../app:/app/app
+      - ../services:/app/services
+      - ../utils:/app/utils
+      - ../config:/app/config
+      - ../run.py:/app/run.py
+      - ../logs:/app/logs
+      - ../reports:/app/reports
+      - ../data:/app/data
+    ports:
+      - "5000:5000"
+      - "5678:5678"  # Debug port
+    command: ["python", "run.py", "--mode", "dev"]
+    restart: "no"  # Don't restart automatically in dev
+    
+  # Development database (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: bot-slack-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bot-network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  bot-network:
+    driver: bridge
