@@ -1,18 +1,20 @@
 import os
-import sys
+import os
 import logging
 import threading
 from flask import Flask, request, jsonify
 from werkzeug.exceptions import BadRequest
 from datetime import datetime
 
-# Add parent directory to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+# Setup project path
+from utils.common import setup_project_path, setup_logging, validate_project_name, create_response_dict
+setup_project_path()
 
 from config.settings import Config
 from services.slack_service import SlackService
 from services.process_service import ProcessService
 from services.report_service import ReportService
+from constants import DEFAULT_PORT, LOGS_DIR
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -28,16 +30,7 @@ process_service = ProcessService()
 report_service = ReportService()
 
 # Setup logging
-os.makedirs('logs', exist_ok=True)
-logging.basicConfig(
-    level=getattr(logging, config.LOG_LEVEL),
-    format=config.LOG_FORMAT,
-    handlers=[
-        logging.FileHandler(config.LOG_FILE),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = setup_logging(__name__, config.LOG_LEVEL, config.LOG_FILE)
 
 # Application metadata
 APP_VERSION = "2.0.0"
@@ -60,15 +53,7 @@ class SlackBotAPI:
         Returns:
             tuple: (is_valid, error_message)
         """
-        if not project:
-            return False, "❌ Tên project không được để trống"
-        
-        project = project.strip().lower()
-        # TEMPORARILY COMMENTED - supported_projects validation causing errors
-        # if project not in self.supported_projects:
-        #     return False, f"❌ Project '{project}' không được hỗ trợ. Các project có sẵn: {', '.join(self.supported_projects)}"
-        
-        return True, ""
+        return validate_project_name(project)
     
     def send_response(self, message: str, ephemeral: bool = False) -> tuple[dict, int]:
         """Send response to Slack

@@ -1,12 +1,14 @@
 import logging
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+# Setup project path
+from utils.common import setup_project_path, setup_logging, handle_exceptions
+setup_project_path()
+
 from config.settings import Config
 
-logger = logging.getLogger(__name__)
+logger = setup_logging(__name__)
 
 class SlackService:
     """Service for Slack API interactions"""
@@ -15,6 +17,7 @@ class SlackService:
         self.client = WebClient(token=Config.SLACK_TOKEN)
         self.channel = Config.SLACK_CHANNEL
     
+    @handle_exceptions(default_return=False)
     def send_message(self, message: str, ephemeral: bool = False) -> bool:
         """Send message to Slack channel
         
@@ -25,21 +28,12 @@ class SlackService:
         Returns:
             bool: Success status
         """
-        try:
-            response = self.client.chat_postMessage(
-                channel=self.channel,
-                text=message
-            )
-            logger.info(f"Message sent successfully: {response['ts']}")
-            return True
-            
-        except SlackApiError as e:
-            logger.error(f"Slack API error: {e.response['error']}")
-            return False
-            
-        except Exception as e:
-            logger.error(f"Unexpected error sending message: {str(e)}")
-            return False
+        response = self.client.chat_postMessage(
+            channel=self.channel,
+            text=message
+        )
+        logger.info(f"Message sent successfully: {response['ts']}")
+        return True
     
     def send_formatted_message(self, blocks: list) -> bool:
         """Send formatted message with blocks

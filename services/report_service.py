@@ -3,12 +3,14 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple
 from bs4 import BeautifulSoup
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from config.settings import Config
+# Setup project path
+from utils.common import setup_project_path, setup_logging, handle_exceptions
+setup_project_path()
 
-logger = logging.getLogger(__name__)
+from config.settings import Config
+from services.slack_service import SlackService
+
+logger = setup_logging(__name__)
 
 class ReportService:
     """Service for handling test reports"""
@@ -37,6 +39,7 @@ class ReportService:
             }
         }
     
+    @handle_exceptions(default_return={"success": False, "message": "❌ Lỗi không xác định khi tạo báo cáo"})
     def generate_report_message(self, project: str) -> Dict[str, Any]:
         """Generate report message for a project
         
@@ -46,12 +49,11 @@ class ReportService:
         Returns:
             dict: Result with status and message
         """
-        # TEMPORARILY COMMENTED - SUPPORTED_PROJECTS causing errors
-        # if project not in Config.SUPPORTED_PROJECTS:
-        #     return {
-        #         "success": False,
-        #         "message": f"❌ Project '{project}' không được hỗ trợ"
-        #     }
+        if project not in Config.SUPPORTED_PROJECTS:
+            return {
+                "success": False,
+                "message": f"❌ Project '{project}' không được hỗ trợ"
+            }
         
         if project not in self.project_config:
             return {
@@ -60,50 +62,36 @@ class ReportService:
             }
         
         config = self.project_config[project]
-        # TEMPORARILY COMMENTED - REPORT_PATHS causing errors
-        # report_path = Config.REPORT_PATHS.get(project)
-        # 
-        # if not report_path:
-        #     return {
-        #         "success": False,
-        #         "message": f"❌ Đường dẫn báo cáo cho project '{project}' chưa được cấu hình"
-        #     }
+        report_path = Config.REPORT_PATHS.get(project)
+        
+        if not report_path:
+            return {
+                "success": False,
+                "message": f"❌ Đường dẫn báo cáo cho project '{project}' chưa được cấu hình"
+            }
+        
+        report_data = self._parse_html_report(report_path)
+        if not report_data["success"]:
+            return report_data
+        
+        execution_date, total, passed, failed, error = report_data["data"]
+        
+        # Create formatted message
+        message = self._format_report_message(
+            config["display_name"],
+            execution_date,
+            total,
+            passed,
+            failed,
+            error,
+            config["detail_url"],
+            config["summary_url"]
+        )
         
         return {
-            "success": False,
-            "message": f"❌ Chức năng báo cáo tạm thời bị vô hiệu hóa do lỗi cấu hình đường dẫn"
+            "success": True,
+            "message": message
         }
-        
-        # try:
-        #     report_data = self._parse_html_report(report_path)
-        #     if not report_data["success"]:
-        #         return report_data
-        #     
-        #     execution_date, total, passed, failed, error = report_data["data"]
-        #     
-        #     # Create formatted message
-        #     message = self._format_report_message(
-        #         config["display_name"],
-        #         execution_date,
-        #         total,
-        #         passed,
-        #         failed,
-        #         error,
-        #         config["detail_url"],
-        #         config["summary_url"]
-        #     )
-        #     
-        #     return {
-        #         "success": True,
-        #         "message": message
-        #     }
-        #     
-        # except Exception as e:
-        #     logger.error(f"Error generating report for {project}: {str(e)}")
-        #     return {
-        #         "success": False,
-        #         "message": f"❌ Lỗi khi tạo báo cáo cho project '{config['display_name']}': {str(e)}"
-        #     }
     
     def _parse_html_report(self, file_path: str) -> Dict[str, Any]:
         """Parse HTML report file

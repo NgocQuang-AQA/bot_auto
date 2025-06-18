@@ -6,11 +6,17 @@ This module provides comprehensive monitoring capabilities for the Bot Slack ser
 including health checks, performance metrics, alerting, and logging analysis.
 """
 
+# Setup project path
+from utils.common import setup_project_path, setup_logging, handle_exceptions
+setup_project_path()
+
+from config.settings import Config
+from constants import DEFAULT_PORT, DEFAULT_HOST
+
 import time
 import psutil
 import requests
 import json
-import logging
 import smtplib
 from datetime import datetime, timedelta
 from email.mime.text import MimeText
@@ -19,6 +25,8 @@ from typing import Dict, List, Optional
 import threading
 import os
 from dataclasses import dataclass
+
+logger = setup_logging(__name__)
 
 @dataclass
 class HealthStatus:
@@ -169,61 +177,38 @@ class AlertManager:
 class HealthChecker:
     """Performs health checks on the service"""
     
-    def __init__(self, base_url: str = 'http://localhost:5000'):
+    def __init__(self, base_url: str = f"http://{DEFAULT_HOST}:{DEFAULT_PORT}"):
         self.base_url = base_url
-        self.logger = logging.getLogger(__name__)
     
+    @handle_exceptions(default_return=HealthStatus(False, 0.0, 0, "Health check failed due to unexpected error"))
     def check_health_endpoint(self) -> HealthStatus:
         """Check the health endpoint"""
         start_time = time.time()
         
-        try:
-            response = requests.get(f'{self.base_url}/health', timeout=10)
-            response_time = time.time() - start_time
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'healthy':
-                    return HealthStatus(
-                        is_healthy=True,
-                        response_time=response_time,
-                        status_code=response.status_code
-                    )
-                else:
-                    return HealthStatus(
-                        is_healthy=False,
-                        response_time=response_time,
-                        status_code=response.status_code,
-                        error_message=f"Service reports unhealthy: {data.get('error', 'Unknown')}"
-                    )
+        response = requests.get(f'{self.base_url}/health', timeout=10)
+        response_time = time.time() - start_time
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'healthy':
+                return HealthStatus(
+                    is_healthy=True,
+                    response_time=response_time,
+                    status_code=response.status_code
+                )
             else:
                 return HealthStatus(
                     is_healthy=False,
                     response_time=response_time,
                     status_code=response.status_code,
-                    error_message=f"HTTP {response.status_code}"
+                    error_message=f"Service reports unhealthy: {data.get('error', 'Unknown')}"
                 )
-                
-        except requests.exceptions.ConnectionError:
+        else:
             return HealthStatus(
                 is_healthy=False,
-                response_time=time.time() - start_time,
-                status_code=0,
-                error_message="Connection refused - service may be down"
-            )
-        except requests.exceptions.Timeout:
-            return HealthStatus(
-                is_healthy=False,
-                response_time=time.time() - start_time,
-                status_code=0,
-                error_message="Request timeout"
-            )
-        except Exception as e:
-            return HealthStatus(
-                is_healthy=False,
-                response_time=time.time() - start_time,
-                status_code=0,
-                error_message=str(e)
+                response_time=response_time,
+                status_code=response.status_code,
+                error_message=f"HTTP {response.status_code}"
             )
     
     def check_endpoints(self) -> Dict[str, HealthStatus]:
@@ -259,28 +244,31 @@ class SystemMonitor:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
     
+    @handle_exceptions(default_return=SystemMetrics(
+        cpu_percent=0.0,
+        memory_percent=0.0,
+        disk_percent=0.0,
+        network_io={},
+        process_count=0
+    ))
     def get_system_metrics(self) -> SystemMetrics:
         """Get current system metrics"""
-        try:
-            # Get network I/O stats
-            net_io = psutil.net_io_counters()
-            network_io = {
-                'bytes_sent': net_io.bytes_sent,
-                'bytes_recv': net_io.bytes_recv,
-                'packets_sent': net_io.packets_sent,
-                'packets_recv': net_io.packets_recv
-            }
-            
-            return SystemMetrics(
-                cpu_percent=psutil.cpu_percent(interval=1),
-                memory_percent=psutil.virtual_memory().percent,
-                disk_percent=psutil.disk_usage('/').percent if os.name != 'nt' else psutil.disk_usage('C:').percent,
-                network_io=network_io,
-                process_count=len(psutil.pids())
-            )
-        except Exception as e:
-            self.logger.error(f"Error getting system metrics: {e}")
-            raise
+        # Get network I/O stats
+        net_io = psutil.net_io_counters()
+        network_io = {
+            'bytes_sent': net_io.bytes_sent,
+            'bytes_recv': net_io.bytes_recv,
+            'packets_sent': net_io.packets_sent,
+            'packets_recv': net_io.packets_recv
+        }
+        
+        return SystemMetrics(
+            cpu_percent=psutil.cpu_percent(interval=1),
+            memory_percent=psutil.virtual_memory().percent,
+            disk_percent=psutil.disk_usage('/').percent if os.name != 'nt' else psutil.disk_usage('C:').percent,
+            network_io=network_io,
+            process_count=len(psutil.pids())
+        )
     
     def check_resource_thresholds(self, metrics: SystemMetrics, thresholds: Dict) -> List[str]:
         """Check if metrics exceed thresholds"""

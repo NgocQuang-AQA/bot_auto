@@ -2,6 +2,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 import logging
+from constants import (
+    DEFAULT_LOG_LEVEL, DEFAULT_LOG_FORMAT, DEFAULT_LOG_FILE,
+    SUPPORTED_PROJECTS
+)
 
 # Load environment variables
 env_path = Path(__file__).resolve().parent / ".env"
@@ -16,33 +20,28 @@ class Config:
     
     # Report Configuration
     DEFAULT_URL_REPORT = os.getenv("DEFAULT_URL_REPORT")
-    # TEMPORARILY COMMENTED - File paths causing errors
-    # REPORT_PATHS = {
-    #     "mlm": os.getenv("REPORT_PATH_MLM"),
-    #     "vkyc": os.getenv("REPORT_PATH_VKYC"),
-    #     "edpadmin": os.getenv("REPORT_PATH_ADMIN"),
-    #     "edpdob": os.getenv("REPORT_PATH_DOB")
-    # }
-    REPORT_PATHS = {}
+    REPORT_PATHS = {
+        "mlm": os.getenv("REPORT_PATH_MLM", ""),
+        "vkyc": os.getenv("REPORT_PATH_VKYC", ""),
+        "edpadmin": os.getenv("REPORT_PATH_ADMIN", ""),
+        "edpdob": os.getenv("REPORT_PATH_DOB", "")
+    }
     
     # Batch File Paths
-    # TEMPORARILY COMMENTED - File paths causing errors
-    # BATCH_PATHS = {
-    #     "mlm": os.getenv("RUN_MLM_BAT"),
-    #     "vkyc": os.getenv("RUN_VKYC_BAT"),
-    #     "edpadmin": os.getenv("RUN_EDP_ADMIN_BAT"),
-    #     "edpdob": os.getenv("RUN_EDP_DOB_BAT")
-    # }
-    BATCH_PATHS = {}
+    BATCH_PATHS = {
+        "mlm": os.getenv("RUN_MLM_BAT", ""),
+        "vkyc": os.getenv("RUN_VKYC_BAT", ""),
+        "edpadmin": os.getenv("RUN_EDP_ADMIN_BAT", ""),
+        "edpdob": os.getenv("RUN_EDP_DOB_BAT", "")
+    }
     
     # Supported Projects
-    # SUPPORTED_PROJECTS = list(BATCH_PATHS.keys())
-    SUPPORTED_PROJECTS = []  # Temporarily empty to avoid errors
+    SUPPORTED_PROJECTS = SUPPORTED_PROJECTS
     
     # Logging Configuration
-    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    LOG_FILE = os.getenv("LOG_FILE", "bot_slack.log")
+    LOG_LEVEL = os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL)
+    LOG_FORMAT = DEFAULT_LOG_FORMAT
+    LOG_FILE = os.getenv("LOG_FILE", DEFAULT_LOG_FILE)
     
     @classmethod
     def validate(cls):

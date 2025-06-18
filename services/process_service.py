@@ -3,12 +3,14 @@ import threading
 import time
 import logging
 from typing import Optional, Dict, Any
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+# Setup project path
+from utils.common import setup_project_path, setup_logging, handle_exceptions, create_response_dict
+setup_project_path()
+
 from config.settings import Config
 
-logger = logging.getLogger(__name__)
+logger = setup_logging(__name__)
 
 class ProcessService:
     """Service for managing processes and Docker containers"""
@@ -17,6 +19,7 @@ class ProcessService:
         self._running_processes: Dict[str, subprocess.Popen] = {}
         self._process_lock = threading.Lock()
     
+    @handle_exceptions(default_return={"success": False, "message": "❌ Lỗi không xác định"})
     def run_batch_file(self, project: str) -> Dict[str, Any]:
         """Run batch file for specified project
         
@@ -26,28 +29,42 @@ class ProcessService:
         Returns:
             dict: Result with status and message
         """
-        # TEMPORARILY COMMENTED - BATCH_PATHS causing errors
-        return {
-            "success": False,
-            "message": f"❌ Chức năng chạy batch file tạm thời bị vô hiệu hóa do lỗi cấu hình đường dẫn"
-        }
+        if project not in Config.SUPPORTED_PROJECTS:
+            return create_response_dict(
+                False, 
+                f"❌ Project '{project}' không được hỗ trợ"
+            )
         
-        # if project not in Config.SUPPORTED_PROJECTS:
-        #     return {
-        #         "success": False,
-        #         "message": f"❌ Project '{project}' không được hỗ trợ"
-        #     }
-        # 
-        # batch_path = Config.BATCH_PATHS[project]
-        # if not batch_path:
-        #     return {
-        #         "success": False,
-        #         "message": f"❌ Không tìm thấy đường dẫn batch file cho project '{project}'"
-        #     }
+        batch_path = Config.BATCH_PATHS.get(project)
+        if not batch_path:
+            return create_response_dict(
+                False,
+                f"❌ Không tìm thấy đường dẫn batch file cho project '{project}'"
+            )
         
-        # TEMPORARILY COMMENTED - Rest of batch file execution
-        # try:
-        #     with self._process_lock:
+        with self._process_lock:
+            # Check if project is already running
+            if project in self._running_processes:
+                return create_response_dict(
+                    False,
+                    f"❌ Project '{project}' đang chạy"
+                )
+            
+            # Start the batch process
+            process = subprocess.Popen(
+                batch_path,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            
+            self._running_processes[project] = process
+            logger.info(f"Started batch file for project {project}: {batch_path}")
+            
+            return create_response_dict(
+                True,
+                f"✅ Đã bắt đầu chạy project {project}"
+            )
         #         # Stop existing process if running
         #         if project in self._running_processes:
         #             self._stop_process(project)

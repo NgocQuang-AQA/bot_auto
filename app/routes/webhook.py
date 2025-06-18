@@ -1,16 +1,18 @@
 from flask import Flask, request, jsonify
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+from flask import Flask, request, jsonify
+import threading
+
+# Setup project path
+from utils.common import setup_project_path, setup_logging, validate_project_name
+setup_project_path()
 
 from services import legacy_service as service 
 from utils import report_reader as readReport
-import threading
 from config import settings as rc
+from constants import SUPPORTED_PROJECTS
 
 app = Flask(__name__)
-
-PROJECT_LST = ["mlm","vkyc","edpadmin","edpdob"]
+logger = setup_logging(__name__)
 
 @app.route("/bot-slack/help", methods=["POST"])
 def send_guid():
@@ -27,11 +29,14 @@ def send_guid():
 @app.route("/bot-slack/run", methods=["POST"])
 def run():
     project = request.form.get("text", "").strip().lower()
-    if not project or project not in PROJECT_LST:
+    is_valid, error_msg = validate_project_name(project)
+    
+    if not is_valid:
         return jsonify({
             "response_type": "ephemeral",
-            "text": "❌ Project không tồn tại!"
+            "text": error_msg
         }), 200
+    
     service.send_mess(f"✅ Đang chạy project {project}...")
     # Gửi phản hồi NGAY cho Slack (tránh timeout)
     threading.Thread(target=run_background_project, args=(project,)).start()
@@ -40,12 +45,13 @@ def run():
 @app.route("/bot-slack/report", methods=["POST"])
 def report():
     project = request.form.get("text", "").strip().lower()
+    is_valid, error_msg = validate_project_name(project)
 
-    if not project or project not in PROJECT_LST:
+    if not is_valid:
         return jsonify({
             "response_type": "ephemeral",
-            "text": "❌ Project không tồn tại!"
-    }), 200
+            "text": error_msg
+        }), 200
 
     mess = readReport.gen_mess(project)
 

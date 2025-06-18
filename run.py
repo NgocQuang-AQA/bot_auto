@@ -11,92 +11,72 @@ This script provides different ways to run the Slack bot service:
 import os
 import sys
 import argparse
-import logging
+
+# Setup project path
+from utils.common import setup_project_path, setup_logging
+setup_project_path()
+
 from app.main import app
 from config.settings import Config
+from constants import DEFAULT_PORT
+from waitress import serve
+
+logger = setup_logging(__name__)
 
 # Create config instance
 config = Config()
 
-def setup_logging(level=logging.INFO):
-    """Setup logging configuration"""
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('logs/app.log'),
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
-
 def run_development():
-    """Run in development mode"""
-    print("🚀 Starting Bot Slack Service in DEVELOPMENT mode...")
-    setup_logging(logging.DEBUG)
+    """Run the application in development mode"""
+    logger.info("Starting application in development mode...")
     
-    app.run(
-        host='0.0.0.0',
-        port=5000,
-        debug=True,
-        threaded=True
-    )
+    try:
+        app.run(
+            host='0.0.0.0',
+            port=DEFAULT_PORT,
+            debug=True
+        )
+    except Exception as e:
+        logger.error(f"Failed to start development server: {e}")
+        raise
 
 def run_production():
-    """Run in production mode"""
-    print("🚀 Starting Bot Slack Service in PRODUCTION mode...")
-    setup_logging(logging.INFO)
+    """Run the application in production mode using Waitress"""
+    logger.info("Starting application in production mode...")
     
-    # Use a production WSGI server
     try:
-        from waitress import serve
-        print("Using Waitress WSGI server")
         serve(
             app,
             host='0.0.0.0',
-            port=5000,
-            threads=4,
-            connection_limit=100,
-            cleanup_interval=30,
-            channel_timeout=120
+            port=DEFAULT_PORT,
+            threads=4
         )
-    except ImportError:
-        print("Waitress not available, falling back to Flask dev server")
-        print("⚠️  WARNING: Using Flask dev server in production is not recommended!")
-        app.run(
-            host='0.0.0.0',
-            port=5000,
-            debug=False,
-            threaded=True
-        )
+    except Exception as e:
+        logger.error(f"Failed to start production server: {e}")
+        raise
 
 def run_custom(host, port, debug, workers):
     """Run with custom configuration"""
-    print(f"🚀 Starting Bot Slack Service on {host}:{port}...")
-    setup_logging(logging.DEBUG if debug else logging.INFO)
+    logger.info(f"Starting Bot Slack Service with custom config...")
+    logger.info(f"   Host: {host}")
+    logger.info(f"   Port: {port}")
+    logger.info(f"   Debug: {debug}")
+    logger.info(f"   Workers: {workers}")
     
-    if debug:
-        app.run(
-            host=host,
-            port=port,
-            debug=True,
-            threaded=True
-        )
-    else:
-        try:
-            from waitress import serve
+    try:
+        if workers > 1:
+            logger.info(f"Using Waitress with {workers} threads")
             serve(
                 app,
                 host=host,
                 port=port,
                 threads=workers
             )
-        except ImportError:
-            app.run(
-                host=host,
-                port=port,
-                debug=False,
-                threaded=True
-            )
+        else:
+            app.run(host=host, port=port, debug=debug)
+    except Exception as e:
+        logger.error(f"Failed to start custom server: {e}")
+        raise
 
 def validate_environment():
     """Validate required environment variables"""
@@ -125,7 +105,7 @@ def main():
     parser.add_argument(
         '--port', 
         type=int, 
-        default=5000,
+        default=DEFAULT_PORT,
         help='Port to bind to (default: 5000)'
     )
     parser.add_argument(
